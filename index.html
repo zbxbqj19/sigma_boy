@@ -8,6 +8,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.5.2/math.min.js"></script>
+
 <style>
 
 *{
@@ -206,39 +208,39 @@ button:hover{
 
 <script>
 
+math.config({
+    number: "BigNumber",
+    precision: 64
+});
+
 let chart;
 
-function factorial(n){
 
-    if(n<0) return NaN;
+function preprocessExpression(expr,indexVar){
 
-    let r=1;
+    expr = expr.replace(/\s+/g,'');
 
-    for(let i=2;i<=n;i++)
-        r*=i;
-
-    return r;
-}
-
-function compileExpression(expr,indexVar,value){
-
-    expr=expr.replaceAll("^","**");
-
-    expr=expr.replace(
-        new RegExp("\\b"+indexVar+"\\b","g"),
-        `(${value})`
+    expr = expr.replace(
+        new RegExp(`(\\d)(${indexVar})`,'g'),
+        '$1*$2'
     );
 
-    expr=expr.replaceAll("pi","Math.PI");
-    expr=expr.replaceAll("e","Math.E");
+    expr = expr.replace(
+        new RegExp(`(${indexVar})(\\d)`,'g'),
+        '$1*$2'
+    );
 
-    expr=expr.replaceAll("sqrt(","Math.sqrt(");
-    expr=expr.replaceAll("abs(","Math.abs(");
-    expr=expr.replaceAll("log(","Math.log(");
-    expr=expr.replaceAll("sin(","Math.sin(");
-    expr=expr.replaceAll("cos(","Math.cos(");
-    expr=expr.replaceAll("tan(","Math.tan(");
-    expr=expr.replaceAll("exp(","Math.exp(");
+    expr = expr.replace(
+        new RegExp(`(\\d)\\(`,'g'),
+        '$1*('
+    );
+
+    expr = expr.replace(
+        new RegExp(`(${indexVar})\\(`,'g'),
+        '$1*('
+    );
+
+    expr = expr.replace(/\)\(/g,')*(');
 
     return expr;
 }
@@ -257,7 +259,13 @@ function calculateSigma(){
     const formula=
         document.getElementById("formula").value.trim();
 
-    let total=0;
+    const parsedFormula =
+    preprocessExpression(
+        formula,
+        variable
+    );
+
+    let total = math.bignumber(0);
 
     let values=[];
     let cumulative=[];
@@ -266,38 +274,49 @@ function calculateSigma(){
 
     for(let n=start;n<=end;n++){
 
-        let expr=
-            compileExpression(
-                formula,
-                variable,
-                n
-            );
+        const scope = {};
 
-        let value;
+scope[variable] =
+math.bignumber(n);
 
-        try{
+let value;
 
-            value=Function(
-                "factorial",
-                "return "+expr
-            )(factorial);
+    try{
 
-        }catch{
+        value = math.evaluate(
+            parsedFormula,
+            scope
+        );
 
-            alert("수식 오류");
-            return;
-        }
+    }catch(err){
 
-        total+=value;
+        alert(
+        "수식 오류 : " +
+        err.message
+        );
 
-        values.push(value);
-        cumulative.push(total);
+        return;
+    }
+
+        total = math.add(
+            total,
+            value
+        );
+
+        values.push(
+            Number(value.toString())
+        );
+        cumulative.push(
+            Number(total.toString())
+        );
 
         steps+=`
         <li>
         ${variable}=${n}
         → ${formula}
-        = ${value}
+        = ${math.format(value,{
+            precision:40
+        })}
         </li>`;
     }
 
@@ -305,7 +324,11 @@ function calculateSigma(){
 
     <div class="card answer">
 
-        <h2>${total}</h2>
+        <h2>
+        ${math.format(total,{
+            precision:50
+        })}
+        </h2>
 
         <p>
         ${(end-start+1)}개의 항이 계산되었습니다.
