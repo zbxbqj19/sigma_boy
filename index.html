@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>시그마 계산기</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Pretendard",sans-serif;
+}
+
+body{
+    background:#ffffff;
+    color:#222;
+    padding:40px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+}
+
+h1{
+    margin-bottom:25px;
+}
+
+.card{
+    background:white;
+    border:1px solid #eee;
+    border-radius:20px;
+    padding:25px;
+    margin-bottom:25px;
+}
+
+label{
+    font-weight:600;
+    display:block;
+    margin-bottom:8px;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border:2px solid #ddd;
+    border-radius:12px;
+    font-size:18px;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:20px;
+    margin-top:20px;
+}
+
+.formula{
+    margin-top:20px;
+}
+
+button{
+    width:100%;
+    padding:20px;
+    border:none;
+    border-radius:16px;
+    color:white;
+    font-size:22px;
+    cursor:pointer;
+    margin-top:25px;
+
+    background:linear-gradient(
+        135deg,
+        #ff3b30,
+        #ff5e3a,
+        #ff7a18
+    );
+}
+
+button:hover{
+    opacity:.9;
+}
+
+.result{
+    margin-top:30px;
+}
+
+.answer{
+    text-align:center;
+    padding:30px;
+}
+
+.answer h2{
+    font-size:80px;
+    color:#111;
+}
+
+.answer p{
+    font-size:22px;
+    margin-top:10px;
+}
+
+.steps{
+    margin-top:25px;
+}
+
+.steps li{
+    margin-bottom:12px;
+    font-size:20px;
+}
+
+.toolbar{
+    margin-top:15px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.tool{
+    padding:8px 14px;
+    border-radius:8px;
+    background:#f4f4f4;
+}
+
+.chart-box{
+    margin-top:30px;
+}
+
+.tab-buttons{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.tab-buttons button{
+    width:auto;
+    padding:12px 18px;
+    font-size:16px;
+    margin:0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>∑ 시그마 계산기</h1>
+
+<div class="card">
+
+<div class="grid">
+
+<div>
+<label>하한</label>
+<input id="start" value="1">
+</div>
+
+<div>
+<label>상한</label>
+<input id="end" value="13">
+</div>
+
+<div>
+<label>인덱스 변수</label>
+<input id="variable" value="n">
+</div>
+
+</div>
+
+<div class="formula">
+<label>수식 F(n)</label>
+<input id="formula" value="3*n-1">
+</div>
+
+<button onclick="calculateSigma()">
+합계 계산 (Σ)
+</button>
+
+<div class="toolbar">
+<div class="tool">^</div>
+<div class="tool">sqrt()</div>
+<div class="tool">abs()</div>
+<div class="tool">log()</div>
+<div class="tool">sin()</div>
+<div class="tool">cos()</div>
+<div class="tool">tan()</div>
+<div class="tool">exp()</div>
+<div class="tool">factorial()</div>
+<div class="tool">pi</div>
+<div class="tool">e</div>
+</div>
+
+</div>
+
+<div id="output"></div>
+
+</div>
+
+<script>
+
+let chart;
+
+function factorial(n){
+
+    if(n<0) return NaN;
+
+    let r=1;
+
+    for(let i=2;i<=n;i++)
+        r*=i;
+
+    return r;
+}
+
+function compileExpression(expr,indexVar,value){
+
+    expr=expr.replaceAll("^","**");
+
+    expr=expr.replace(
+        new RegExp("\\b"+indexVar+"\\b","g"),
+        `(${value})`
+    );
+
+    expr=expr.replaceAll("pi","Math.PI");
+    expr=expr.replaceAll("e","Math.E");
+
+    expr=expr.replaceAll("sqrt(","Math.sqrt(");
+    expr=expr.replaceAll("abs(","Math.abs(");
+    expr=expr.replaceAll("log(","Math.log(");
+    expr=expr.replaceAll("sin(","Math.sin(");
+    expr=expr.replaceAll("cos(","Math.cos(");
+    expr=expr.replaceAll("tan(","Math.tan(");
+    expr=expr.replaceAll("exp(","Math.exp(");
+
+    return expr;
+}
+
+function calculateSigma(){
+
+    const start=
+        parseInt(document.getElementById("start").value);
+
+    const end=
+        parseInt(document.getElementById("end").value);
+
+    const variable=
+        document.getElementById("variable").value.trim();
+
+    const formula=
+        document.getElementById("formula").value.trim();
+
+    let total=0;
+
+    let values=[];
+    let cumulative=[];
+
+    let steps="";
+
+    for(let n=start;n<=end;n++){
+
+        let expr=
+            compileExpression(
+                formula,
+                variable,
+                n
+            );
+
+        let value;
+
+        try{
+
+            value=Function(
+                "factorial",
+                "return "+expr
+            )(factorial);
+
+        }catch{
+
+            alert("수식 오류");
+            return;
+        }
+
+        total+=value;
+
+        values.push(value);
+        cumulative.push(total);
+
+        steps+=`
+        <li>
+        ${variable}=${n}
+        → ${formula}
+        = ${value}
+        </li>`;
+    }
+
+    document.getElementById("output").innerHTML=`
+
+    <div class="card answer">
+
+        <h2>${total}</h2>
+
+        <p>
+        ${(end-start+1)}개의 항이 계산되었습니다.
+        </p>
+
+    </div>
+
+    <div class="card">
+
+        <h2>단계별 전개</h2>
+
+        <ul class="steps">
+            ${steps}
+        </ul>
+
+        <h3 style="margin-top:20px">
+        Σ = ${total}
+        </h3>
+
+    </div>
+
+    <div class="card">
+
+        <div class="tab-buttons">
+
+            <button onclick="drawChart('value')">
+            항의 값
+            </button>
+
+            <button onclick="drawChart('sum')">
+            누적 합계
+            </button>
+
+        </div>
+
+        <canvas id="sigmaChart"></canvas>
+
+    </div>
+
+    `;
+
+    window.chartValues=values;
+    window.chartSums=cumulative;
+    window.chartLabels=
+        Array.from(
+            {length:end-start+1},
+            (_,i)=>start+i
+        );
+
+    drawChart("sum");
+}
+
+function drawChart(type){
+
+    const ctx=
+    document.getElementById("sigmaChart");
+
+    if(chart)
+        chart.destroy();
+
+    chart=new Chart(ctx,{
+
+        type:"line",
+
+        data:{
+
+            labels:window.chartLabels,
+
+            datasets:[{
+
+                label:
+                    type==="sum"
+                    ? "누적 합계"
+                    : "항의 값",
+
+                data:
+                    type==="sum"
+                    ? window.chartSums
+                    : window.chartValues,
+
+                borderColor:"#ff4d4d",
+
+                backgroundColor:
+                    "rgba(255,77,77,.15)",
+
+                fill:true,
+
+                tension:.3
+            }]
+        }
+    });
+}
+
+</script>
+
+</body>
+</html>
